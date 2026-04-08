@@ -26,20 +26,42 @@ const server = new Server(
 // ── Tool Definitions ────────────────────────────────────────────────────────
 
 const TOOLS = [
+  // Specific tools first — AI should prefer these over ipable_chat
   {
-    name: "ipable_chat",
-    description: "Ask the IPable AI about patents. It will query a 12M+ node knowledge graph and return analysis. Use this for any patent-related question.",
+    name: "ipable_market_concentration",
+    description: "PREFERRED for questions about top companies, market leaders, or who dominates a technology area. Returns ranked list of companies by patent count with market share percentages. Use when the user asks: 'top assignees in X', 'who has the most patents in X', 'market leaders in X', 'competitive landscape for X'. Requires an IPC code prefix like G06N (AI), G06F (computing), H01L (semiconductors), A61K (pharma), H04L (telecom), H04W (wireless), C12N (biotech).",
     inputSchema: {
       type: "object" as const,
       properties: {
-        message: { type: "string", description: "Your question about patents, companies, inventors, or IP landscapes" },
+        tech_domain: { type: "string", description: "IPC code prefix. Common ones: G06N=AI/ML, G06F=Computing, H01L=Semiconductors, A61K=Pharma, H04L=Digital Comm, H04W=Wireless, C12N=Genetic Eng. Leave empty for all domains." },
       },
-      required: ["message"],
+    },
+  },
+  {
+    name: "ipable_company_overview",
+    description: "PREFERRED for questions about a specific company's patent portfolio. Returns total patents, patent families, research intensity, tech areas, and times cited. Use when the user mentions a company name and wants portfolio stats, overview, or profile.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        company_name: { type: "string", description: "Company name, e.g. Samsung, Google, Toyota, Apple, TSMC" },
+      },
+      required: ["company_name"],
+    },
+  },
+  {
+    name: "ipable_company_tech_portfolio",
+    description: "PREFERRED for questions about what technologies a company focuses on. Returns IPC class distribution for a company's patents. Use when user asks 'what does X work on', 'X's technology focus', 'IPC classes for X'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        company_name: { type: "string", description: "Company name" },
+      },
+      required: ["company_name"],
     },
   },
   {
     name: "ipable_find_similar_patents",
-    description: "Find patents similar to a target patent by shared citation overlap (both patent and article citations).",
+    description: "Find patents similar to a specific patent by shared citation overlap. Use when the user provides a patent publication number and wants to find related patents.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -50,40 +72,8 @@ const TOOLS = [
     },
   },
   {
-    name: "ipable_company_overview",
-    description: "Get a complete overview of a company's patent portfolio: total patents, families, research intensity, tech areas, times cited.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        company_name: { type: "string", description: "Company name, e.g. Samsung, Google, Toyota" },
-      },
-      required: ["company_name"],
-    },
-  },
-  {
-    name: "ipable_company_tech_portfolio",
-    description: "Get the technology distribution (IPC classes) for a company's patent portfolio.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        company_name: { type: "string", description: "Company name" },
-      },
-      required: ["company_name"],
-    },
-  },
-  {
-    name: "ipable_market_concentration",
-    description: "Analyze competitive landscape — top companies by patent count in a technology domain with market share percentages.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        tech_domain: { type: "string", description: "IPC code prefix, e.g. G06N for AI, H01L for semiconductors. Leave empty for all domains." },
-      },
-    },
-  },
-  {
     name: "ipable_fto_risk",
-    description: "Assess Freedom-to-Operate risk for a technology domain — crowdedness score, risk level, and blocking patents.",
+    description: "Assess Freedom-to-Operate risk for a technology domain. Returns crowdedness score, risk level (LOW/MEDIUM/HIGH/EXTREME), and blocking patents. Use when the user asks about FTO, patent risk, or how crowded a technology space is.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -94,7 +84,7 @@ const TOOLS = [
   },
   {
     name: "ipable_research_intensity",
-    description: "Rank companies by research intensity — how many academic articles they cite per patent. Classifies as Deep Research, Research-Driven, or Engineering-Focused.",
+    description: "Rank companies by how much academic research they cite per patent. Classifies companies as Deep Research (>30), Research-Driven (15-30), Moderate R&D (5-15), or Engineering-Focused (<5). Use for questions about R&D intensity, research-driven companies, or academic-industry links.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -104,7 +94,7 @@ const TOOLS = [
   },
   {
     name: "ipable_cross_domain",
-    description: "Find companies bridging two technology domains by shared research citations.",
+    description: "Find companies that bridge two different technology domains through shared research citations. Use when user asks about cross-domain innovation, technology convergence, or companies working across fields.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -116,7 +106,7 @@ const TOOLS = [
   },
   {
     name: "ipable_graph_stats",
-    description: "Get overall knowledge graph statistics: total patents, articles, inventors, assignees, families, authors.",
+    description: "Get overall knowledge graph statistics: total patents, articles, inventors, assignees, families, authors. Use for general questions about the database size or 'how many patents'.",
     inputSchema: {
       type: "object" as const,
       properties: {},
@@ -124,12 +114,24 @@ const TOOLS = [
   },
   {
     name: "ipable_ipc_distribution",
-    description: "Get patent distribution across IPC technology classes.",
+    description: "Get patent distribution across IPC technology classes with section names. Use for questions about technology landscape, patent distribution, or which fields have the most patents.",
     inputSchema: {
       type: "object" as const,
       properties: {
         limit: { type: "number", description: "Number of top classes to return (default 15)" },
       },
+    },
+  },
+  // Chat is LAST RESORT — only when no specific tool matches
+  {
+    name: "ipable_chat",
+    description: "LAST RESORT — only use this when NO other IPable tool matches the question. Sends a free-form question to the IPable AI which generates a custom database query. Less reliable than the specific tools above. Prefer ipable_market_concentration, ipable_company_overview, ipable_graph_stats, etc.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        message: { type: "string", description: "Free-form patent question that doesn't match any specific tool" },
+      },
+      required: ["message"],
     },
   },
 ];
