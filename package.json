@@ -1,10 +1,13 @@
 {
-  "name": "ipable-mcp",
+  "name": "@ipable/mcp",
   "version": "0.1.0",
   "description": "MCP server for IPable Patent Intelligence — query a 12M+ node patent knowledge graph from any AI tool",
   "main": "dist/index.js",
   "bin": {
     "ipable-mcp": "dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc",

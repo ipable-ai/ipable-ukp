@@ -1,151 +1,217 @@
 # IPable MCP Server
 
-MCP server for [IPable](https://ipable.ai) — query a patent knowledge graph with 11M+ patents from any MCP-compatible AI tool.
+Connect your AI assistant to a patent knowledge graph with 11M+ patents.
 
-Works with Claude Code, Cursor, Windsurf, Cline, and any tool that supports the [Model Context Protocol](https://modelcontextprotocol.io).
+Ask patent questions directly inside Claude, Cursor, Windsurf, or any AI tool that supports MCP.
 
-## Quick Start
+---
 
-### 1. Get an API Key
+## What Can You Do With This?
 
-Sign up at [app.ipable.ai](https://app.ipable.ai), go to **Profile → API Keys → Create API Key**.
+Once set up, you can ask your AI things like:
 
-### 2. Connect to Your AI Tool
+- "Who are the top patent holders in AI?"
+- "Give me Samsung's patent portfolio overview"
+- "What's the FTO risk for semiconductors?"
+- "Find patents similar to US-12448682-B2"
+- "Which companies bridge biotech and AI research?"
 
-**Claude Code (CLI):**
-```bash
-claude mcp add ipable -- npx -y ipable-mcp
-# Then set your key:
-# IPABLE_API_KEY=ipable_xxxxx
-```
+The AI will query the IPable patent database and return real data.
 
-**Claude Code (VS Code extension) — `~/.claude/settings.json`:**
+---
+
+## Prerequisites
+
+You need **Node.js** installed on your computer.
+
+- **Check if you have it:** Open a terminal and type `node --version`. If you see a version number (like `v20.x.x`), you're good.
+- **If not installed:** Download it from [nodejs.org](https://nodejs.org) — pick the LTS version, install it, done.
+
+That's the only prerequisite. The MCP server downloads automatically the first time you use it.
+
+---
+
+## Setup (2 steps)
+
+### Step 1: Get Your API Key
+
+1. Go to [app.ipable.ai](https://app.ipable.ai)
+2. Create an account (or sign in with Google)
+3. Click your **avatar** → opens your **Profile** page
+4. Scroll to **API Keys** → click **"+ Create API Key"**
+5. Type a name like "Claude" and press Enter
+6. **Copy the key now** — it starts with `ipable_` and won't be shown again
+
+### Step 2: Add to Your AI Tool
+
+Pick your tool below. Replace `YOUR_KEY` with the key you copied in Step 1.
+
+---
+
+### Claude Desktop (Mac/Windows app)
+
+1. Open this file:
+   - **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+2. Paste this (replace `YOUR_KEY`):
+
 ```json
 {
   "mcpServers": {
     "ipable": {
       "command": "npx",
-      "args": ["-y", "ipable-mcp"],
+      "args": ["-y", "@ipable/mcp"],
       "env": {
-        "IPABLE_API_KEY": "ipable_your_key_here"
+        "IPABLE_API_KEY": "YOUR_KEY"
       }
     }
   }
 }
 ```
 
-**Cursor — `.cursor/mcp.json`:**
+3. **Quit Claude Desktop completely** (Cmd+Q on Mac) and reopen it
+
+4. Look for the 🔨 hammer icon at the bottom of the chat — click it to see IPable tools
+
+5. Try: "Use IPable to show me the patent database stats"
+
+---
+
+### Claude Code (Terminal / VS Code)
+
+1. Open `~/.claude/settings.json` (create it if it doesn't exist)
+
+2. Paste this (replace `YOUR_KEY`):
+
 ```json
 {
   "mcpServers": {
     "ipable": {
       "command": "npx",
-      "args": ["-y", "ipable-mcp"],
+      "args": ["-y", "@ipable/mcp"],
       "env": {
-        "IPABLE_API_KEY": "ipable_your_key_here"
+        "IPABLE_API_KEY": "YOUR_KEY"
       }
     }
   }
 }
 ```
 
-**Windsurf — `~/.codeium/windsurf/mcp_config.json`:**
+3. Restart Claude Code
+
+---
+
+### Cursor
+
+1. Create `.cursor/mcp.json` in your project folder
+
+2. Paste this (replace `YOUR_KEY`):
+
 ```json
 {
   "mcpServers": {
     "ipable": {
       "command": "npx",
-      "args": ["-y", "ipable-mcp"],
+      "args": ["-y", "@ipable/mcp"],
       "env": {
-        "IPABLE_API_KEY": "ipable_your_key_here"
+        "IPABLE_API_KEY": "YOUR_KEY"
       }
     }
   }
 }
 ```
 
-### 3. Ask Questions
+3. Restart Cursor
 
-Once connected, your AI can query the patent knowledge graph:
+---
 
-```
-"Find patents similar to US-12448682-B2 by citation overlap"
-"Give me Samsung's patent portfolio overview"
-"What's the FTO risk for AI/ML patents (IPC G06N)?"
-"Which companies bridge biotech and AI research?"
-"Show me the top 10 companies in semiconductor patents"
-"Rank companies by research intensity"
-```
+### Windsurf
+
+1. Open `~/.codeium/windsurf/mcp_config.json`
+
+2. Paste the same config as above (replace `YOUR_KEY`)
+
+3. Restart Windsurf
+
+---
 
 ## Available Tools
 
-| Tool | Description | Example Input |
-|------|-------------|---------------|
-| `ipable_chat` | Free-form patent question — AI queries the graph | "How many battery patents does Toyota have?" |
-| `ipable_find_similar_patents` | Patents sharing citation overlap | `publication_number: "US-12448682-B2"` |
-| `ipable_company_overview` | Portfolio summary: patents, families, R&D intensity | `company_name: "Samsung"` |
-| `ipable_company_tech_portfolio` | IPC class distribution for a company | `company_name: "Google"` |
-| `ipable_market_concentration` | Top players + market share in a tech domain | `tech_domain: "G06N"` |
-| `ipable_fto_risk` | FTO risk level + blocking patents | `tech_domain: "H01L"` |
-| `ipable_research_intensity` | Companies ranked by academic citations/patent | `min_patents: 20` |
-| `ipable_cross_domain` | Companies bridging two tech domains | `source: "C12N", target: "G06N"` |
-| `ipable_graph_stats` | Knowledge graph node counts | — |
-| `ipable_ipc_distribution` | Patent count by IPC class | `limit: 15` |
+| When you ask about... | Tool used | What you get |
+|---|---|---|
+| Top companies in a tech area | `ipable_market_concentration` | Ranked list with patent counts and market share |
+| A company's patent portfolio | `ipable_company_overview` | Total patents, families, R&D intensity |
+| What tech a company focuses on | `ipable_company_tech_portfolio` | IPC class breakdown |
+| Similar patents | `ipable_find_similar_patents` | Patents sharing the most citations |
+| How crowded a patent space is | `ipable_fto_risk` | Risk level + blocking patents |
+| R&D-heavy companies | `ipable_research_intensity` | Companies ranked by citations per patent |
+| Companies bridging two fields | `ipable_cross_domain` | Cross-domain convergence |
+| Database size | `ipable_graph_stats` | Total patents, articles, inventors |
+| Patent distribution | `ipable_ipc_distribution` | Patents per IPC class |
+| Anything else | `ipable_chat` | Free-form AI query |
 
-## Knowledge Graph
+---
 
-The IPable knowledge graph contains:
+## Example Conversations
 
-| Entity | Count |
-|--------|-------|
-| Patents | 11.6M+ |
-| Patent Families | 3.5M+ |
-| Inventors | 2.2M+ |
-| Assignees (Companies) | 660K+ |
-| Academic Articles | 389K+ |
-| Authors | 185K+ |
+**You:** "Who dominates the wireless patent space?"
+→ AI returns Samsung, Huawei, Qualcomm with patent counts and market share
 
-Data sourced from public patent registries. Updated periodically.
+**You:** "Give me Apple's patent portfolio"
+→ AI returns 6,961 patents, 24 tech areas, research intensity 0.8
+
+**You:** "Is it risky to file patents in AI?"
+→ AI returns LOW risk, 30K+ assignees, 2.7 patents per company
+
+---
+
+## Your Queries Sync to IPable
+
+Every MCP query automatically appears in your IPable web app at [app.ipable.ai](https://app.ipable.ai) under **"External Queries"**. You can view, move, duplicate, or share results from there.
+
+---
+
+## Troubleshooting
+
+**Tools not showing up:**
+- Make sure Node.js is installed (`node --version` in terminal)
+- Quit and fully relaunch your AI tool (Cmd+Q, not just close)
+- Check your JSON config for syntax errors at [jsonlint.com](https://jsonlint.com)
+- First launch takes 10-20 seconds as npm downloads the package
+
+**Invalid API key:**
+- Create a new key at app.ipable.ai → Profile → API Keys
+- Make sure no extra spaces around the key
+
+**No results:**
+- Try rephrasing the question
+- Use company names as they appear in patents (e.g., "SAMSUNG ELECTRONICS CO LTD")
+
+---
 
 ## How It Works
 
 ```
-Your AI Tool (Claude, Cursor, etc.)
-  ↓ MCP protocol (local stdio)
-ipable-mcp (runs on your machine)
-  ↓ HTTPS (X-API-Key auth)
-IPable Cloud API
+You ask a question in your AI tool
   ↓
-Neo4j Knowledge Graph + Gemini AI
+AI calls the IPable MCP server (runs locally on your machine)
+  ↓
+MCP server sends the request to the IPable API (over internet)
+  ↓
+API queries a Neo4j graph with 11M+ patents
+  ↓
+Results come back to your AI
 ```
 
-The MCP server runs locally as a subprocess of your AI tool. It translates MCP tool calls into API requests to the IPable backend. No data leaves your machine except the API calls — your conversations stay private.
+Nothing is stored on your machine. Your queries sync to your IPable web account.
 
-## Environment Variables
+---
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `IPABLE_API_KEY` | Yes | — | Your IPable API key (get it from app.ipable.ai) |
-| `IPABLE_BASE_URL` | No | Production API | Override API endpoint (for self-hosted deployments) |
+## Links
 
-## Development
+- Website: [ipable.ai](https://ipable.ai)
+- App: [app.ipable.ai](https://app.ipable.ai)
+- GitHub: [github.com/PatentMuse/ipable-ukp](https://github.com/PatentMuse/ipable-ukp)
 
-```bash
-git clone https://github.com/PatentMuse/ipable-mcp.git
-cd ipable-mcp
-npm install
-npm run build
-IPABLE_API_KEY=your_key npm start
-```
-
-## Troubleshooting
-
-**"Invalid API key"** — Create a new key at app.ipable.ai → Profile → API Keys.
-
-**"Connection refused"** — Check your internet connection. The MCP server needs to reach the IPable API.
-
-**Tools not showing up** — Restart your AI tool after adding the MCP config. Some tools require a full restart.
-
-## License
-
-MIT — [IPable](https://ipable.ai)
+MIT License — [IPable](https://ipable.ai)
