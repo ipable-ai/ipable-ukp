@@ -122,6 +122,77 @@ const TOOLS = [
       },
     },
   },
+  // Claim Element Analysis
+  {
+    name: "ipable_claim_elements",
+    description: "PREFERRED for viewing how a patent claim is decomposed into atomic limitations. Returns structured breakdown: each limitation with its type (structural, functional, method_step, etc.), clause type (body, wherein), and normalized text. Use when user asks 'what does this patent claim?', 'show me the claim elements', 'break down this claim'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        publication_number: { type: "string", description: "Patent publication number, e.g. US-12213393-B2" },
+      },
+      required: ["publication_number"],
+    },
+  },
+  {
+    name: "ipable_obviousness_check",
+    description: "PREFERRED for obviousness analysis (§103). Finds the minimum combination of prior art patents whose claim limitations collectively cover all limitations of a target claim. Returns: covered vs novel limitations, prior art references with element-by-element attribution, and an obvious/not-obvious verdict. Use when user asks 'is this claim obvious?', 'can this patent be invalidated?', 'prior art combination for this claim'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        publication_number: { type: "string", description: "Patent publication number" },
+        claim_number: { type: "number", description: "Claim number to check (default: first independent claim)" },
+      },
+      required: ["publication_number"],
+    },
+  },
+  {
+    name: "ipable_claim_overlap",
+    description: "Find patents that share similar claim limitations with a target patent. Shows which specific limitations overlap and their similarity scores. Use when user asks 'which patents overlap with this one?', 'find similar claims', 'who claims similar things?'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        publication_number: { type: "string", description: "Patent publication number" },
+        min_score: { type: "number", description: "Minimum similarity score 0-1 (default 0.85)" },
+      },
+      required: ["publication_number"],
+    },
+  },
+  {
+    name: "ipable_novel_elements",
+    description: "Find claim limitations that are unique to a patent — no similar limitation exists in any other patent in the database. Use for novelty assessment: 'what's novel in this patent?', 'which elements are unique?', 'novelty check'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        publication_number: { type: "string", description: "Patent publication number" },
+      },
+      required: ["publication_number"],
+    },
+  },
+  {
+    name: "ipable_element_landscape",
+    description: "Show the most commonly claimed limitations across all patents in a technology domain. Reveals what's crowded vs where white space exists. Use when user asks 'what do people claim in semiconductor patents?', 'most common claim elements in AI', 'claim landscape for telecom'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        tech_domain: { type: "string", description: "IPC code prefix, e.g. G06N, H01L, A61K" },
+        limit: { type: "number", description: "Number of results (default 30)" },
+      },
+      required: ["tech_domain"],
+    },
+  },
+  {
+    name: "ipable_search_claim",
+    description: "Search for existing patents with similar claim limitations to a user-provided claim text. The claim is split into limitations, embedded with PatentSBERTa, and searched against the database. Use when user pastes a claim and asks 'is this already claimed?', 'find prior art for my claim', 'does my invention overlap with existing patents?'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        claim_text: { type: "string", description: "Full claim text to search against the database" },
+        min_score: { type: "number", description: "Minimum similarity score 0-1 (default 0.7)" },
+      },
+      required: ["claim_text"],
+    },
+  },
   // Chat is LAST RESORT — only when no specific tool matches
   {
     name: "ipable_chat",
@@ -199,6 +270,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "ipable_ipc_distribution":
         result = await api.ipcDistribution((args.limit as number) || 15);
+        break;
+
+      case "ipable_claim_elements":
+        result = await api.claimElements(args.publication_number as string);
+        break;
+
+      case "ipable_obviousness_check":
+        result = await api.obviousnessCheck(args.publication_number as string, (args.claim_number as number) || 1);
+        break;
+
+      case "ipable_claim_overlap":
+        result = await api.claimOverlap(args.publication_number as string, (args.min_score as number) || 0.85);
+        break;
+
+      case "ipable_novel_elements":
+        result = await api.novelElements(args.publication_number as string);
+        break;
+
+      case "ipable_element_landscape":
+        result = await api.elementLandscape(args.tech_domain as string, (args.limit as number) || 30);
+        break;
+
+      case "ipable_search_claim":
+        result = await api.searchClaimElements(args.claim_text as string, (args.min_score as number) || 0.7);
         break;
 
       default:

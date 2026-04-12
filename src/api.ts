@@ -89,4 +89,29 @@ export class IPableAPI {
   async graphStats(): Promise<any> {
     return this.request("/api/v1/analytics/stats");
   }
+
+  // Claim Element Analysis
+  async claimElements(pubNum: string): Promise<any> {
+    return this.request(`/api/v1/claims/elements/${encodeURIComponent(pubNum)}`);
+  }
+
+  async claimOverlap(pubNum: string, minScore: number = 0.85): Promise<any> {
+    return this.request(`/api/v1/claims/overlapping/${encodeURIComponent(pubNum)}?min_score=${minScore}`);
+  }
+
+  async novelElements(pubNum: string): Promise<any> {
+    return this.request(`/api/v1/claims/novel/${encodeURIComponent(pubNum)}`);
+  }
+
+  async obviousnessCheck(pubNum: string, claimNumber: number = 1): Promise<any> {
+    return this.request(`/api/v1/claims/obviousness/${encodeURIComponent(pubNum)}?claim_number=${claimNumber}`);
+  }
+
+  async elementLandscape(techDomain: string, limit: number = 30): Promise<any> {
+    return this.request(`/api/v1/claims/landscape/${encodeURIComponent(techDomain)}?limit=${limit}`);
+  }
+
+  async searchClaimElements(claimText: string, minScore: number = 0.7): Promise<any> {
+    return this.request("/api/v1/claims/search-elements", "POST", { claim_text: claimText, min_score: minScore });
+  }
 }
