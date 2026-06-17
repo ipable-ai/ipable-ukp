@@ -5,6 +5,10 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { IPableAPI } from "./api.js";
 
@@ -20,7 +24,7 @@ const api = new IPableAPI(API_KEY, BASE_URL);
 
 const server = new Server(
   { name: "ipable-mcp", version: "0.1.0" },
-  { capabilities: { tools: {} } }
+  { capabilities: { tools: {}, resources: {}, prompts: {} } }
 );
 
 // ── Tool Definitions ────────────────────────────────────────────────────────
@@ -193,6 +197,150 @@ const TOOLS = [
       required: ["claim_text"],
     },
   },
+  // Technology Communities (Clusters) — Leiden community detection over H02P motor-control patents
+  {
+    name: "ipable_classify_patent",
+    description: "PREFERRED for classifying a patent into its discovered technology community. Uses Leiden community detection clusters (NOT IPC codes) to show which motor-control technology group a patent belongs to. Coverage: H02P subclass, US+WO only (55,994 patents). Returns cluster levels with names. Use when user asks 'what technology is this patent?', 'classify this patent', 'which cluster?'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        publication_number: { type: "string", description: "Patent publication number, e.g. US-12448682-B2" },
+      },
+      required: ["publication_number"],
+    },
+  },
+  {
+    name: "ipable_find_technology",
+    description: "Search for technology communities by keyword. Returns matching named technology groups from the 26 motor-control clusters. Use when user asks 'is there a cluster for X?', 'find technologies related to X'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "Keyword to search, e.g. 'steering', 'reluctance', 'inverter'" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "ipable_list_technologies",
+    description: "List all 26 named technology communities (motor-control taxonomy). Shows the full technology landscape with patent counts. Use when user asks 'what technologies exist?', 'show me all clusters', 'technology taxonomy'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
+  {
+    name: "ipable_cluster_patents",
+    description: "Get patents belonging to a specific technology community, newest first. Use when user asks 'show patents in X technology', 'recent patents in vector control'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        technology: { type: "string", description: "Technology name or partial match, e.g. 'Vector Control', 'Steering'" },
+        limit: { type: "number", description: "Max results (default 20, max 100)" },
+      },
+      required: ["technology"],
+    },
+  },
+  {
+    name: "ipable_cluster_prior_art",
+    description: "Find prior art for a patent using technology community co-membership and abstract similarity. Returns same-cluster patents ranked by semantic similarity. More targeted than citation-based search. Use when user asks 'find prior art using clusters', 'similar patents in same technology'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        publication_number: { type: "string", description: "Patent publication number" },
+        limit: { type: "number", description: "Max results (default 10, max 100)" },
+      },
+      required: ["publication_number"],
+    },
+  },
+  {
+    name: "ipable_assignee_landscape",
+    description: "Top patent holders in a specific technology community. Shows who dominates a discovered technology cluster (different from IPC-based market concentration). Use when user asks 'who leads in vector control?', 'top companies in motor control technology X'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        technology: { type: "string", description: "Technology name or partial match" },
+        limit: { type: "number", description: "Max results (default 20)" },
+      },
+      required: ["technology"],
+    },
+  },
+  {
+    name: "ipable_technology_flow",
+    description: "Cross-technology citation flow — which technology communities cite each other. Shows knowledge flow between discovered clusters. Use for 'how do technologies relate?', 'citation flow for X', 'which technologies build on X?'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        technology: { type: "string", description: "Technology name or partial match" },
+        limit: { type: "number", description: "Max results (default 20)" },
+      },
+      required: ["technology"],
+    },
+  },
+  {
+    name: "ipable_technology_timeline",
+    description: "Filing-year histogram for a technology community — shows when a technology emerged and its trend over time. Use for 'when did X start?', 'is X growing?', 'technology trend for X'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        technology: { type: "string", description: "Technology name or partial match" },
+      },
+      required: ["technology"],
+    },
+  },
+  {
+    name: "ipable_ipc_vs_cluster",
+    description: "Compare a patent's IPC classification with its discovered technology community. Shows how the data-driven clustering differs from the official IPC taxonomy. This is a key differentiator. Use for 'how does IPC compare to clusters for this patent?', 'IPC vs discovered technology'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        publication_number: { type: "string", description: "Patent publication number" },
+      },
+      required: ["publication_number"],
+    },
+  },
+  {
+    name: "ipable_similar_limitations",
+    description: "Find similar claim limitations via pre-computed graph similarity edges. Given a specific limitation element_id, returns similar limitations from other patents with similarity scores. Use for fine-grained claim-level prior art search.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        element_id: { type: "string", description: "Limitation element_id, e.g. 'US-12448682-B2::1::3'" },
+        limit: { type: "number", description: "Max results (default 10)" },
+      },
+      required: ["element_id"],
+    },
+  },
+  // Subscriptions — track technology clusters
+  {
+    name: "ipable_subscribe",
+    description: "Subscribe to a technology cluster to track it. Use when the user says 'subscribe to X', 'track X', 'follow X technology'. Resolves the technology name to its cluster ID automatically.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        technology: { type: "string", description: "Technology name or keyword, e.g. 'Electric Power Steering', 'vector control'" },
+      },
+      required: ["technology"],
+    },
+  },
+  {
+    name: "ipable_unsubscribe",
+    description: "Unsubscribe from a technology cluster. Use when the user says 'unsubscribe from X', 'stop tracking X'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        technology: { type: "string", description: "Technology name or keyword" },
+      },
+      required: ["technology"],
+    },
+  },
+  {
+    name: "ipable_my_subscriptions",
+    description: "List all technology clusters the user is subscribed to. Use when the user asks 'what am I tracking?', 'my subscriptions', 'show my clusters'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
   // Chat is LAST RESORT — only when no specific tool matches
   {
     name: "ipable_chat",
@@ -296,6 +444,73 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result = await api.searchClaimElements(args.claim_text as string, (args.min_score as number) || 0.7);
         break;
 
+      // Technology Communities (Clusters)
+      case "ipable_classify_patent":
+        result = await api.classifyPatent(args.publication_number as string);
+        break;
+
+      case "ipable_find_technology":
+        result = await api.findTechnology(args.query as string);
+        break;
+
+      case "ipable_list_technologies":
+        result = await api.listTechnologies();
+        break;
+
+      case "ipable_cluster_patents":
+        result = await api.clusterPatents(args.technology as string, (args.limit as number) || 20);
+        break;
+
+      case "ipable_cluster_prior_art":
+        result = await api.clusterPriorArt(args.publication_number as string, (args.limit as number) || 10);
+        break;
+
+      case "ipable_assignee_landscape":
+        result = await api.assigneeLandscape(args.technology as string, (args.limit as number) || 20);
+        break;
+
+      case "ipable_technology_flow":
+        result = await api.technologyFlow(args.technology as string, (args.limit as number) || 20);
+        break;
+
+      case "ipable_technology_timeline":
+        result = await api.technologyTimeline(args.technology as string);
+        break;
+
+      case "ipable_ipc_vs_cluster":
+        result = await api.ipcVsCluster(args.publication_number as string);
+        break;
+
+      case "ipable_similar_limitations":
+        result = await api.similarLimitations(args.element_id as string, (args.limit as number) || 10);
+        break;
+
+      // Subscriptions
+      case "ipable_subscribe": {
+        const techs = await api.findTechnology(args.technology as string);
+        if (!techs || techs.length === 0) {
+          result = { error: `No technology cluster found matching "${args.technology}". Use ipable_list_technologies to see all available clusters.` };
+        } else {
+          const cluster = techs[0];
+          result = await api.subscribe(cluster.id, cluster.technology);
+        }
+        break;
+      }
+
+      case "ipable_unsubscribe": {
+        const techs2 = await api.findTechnology(args.technology as string);
+        if (!techs2 || techs2.length === 0) {
+          result = { error: `No technology cluster found matching "${args.technology}".` };
+        } else {
+          result = await api.unsubscribe(String(techs2[0].id));
+        }
+        break;
+      }
+
+      case "ipable_my_subscriptions":
+        result = await api.listSubscriptions();
+        break;
+
       default:
         return {
           content: [{ type: "text", text: `Unknown tool: ${name}` }],
@@ -313,6 +528,120 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       isError: true,
     };
   }
+});
+
+// ── Resources ──────────────────────────────────────────────────────────────
+
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  return {
+    resources: [
+      {
+        uri: "ipable://taxonomy/motor-control-clusters",
+        name: "Motor Control Technology Taxonomy",
+        description:
+          "All 26 technology communities discovered via Leiden community detection over 55,994 H02P motor-control patents (US+WO). Each cluster has an id, name, and patent count.",
+        mimeType: "application/json",
+      },
+    ],
+  };
+});
+
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  const { uri } = request.params;
+
+  if (uri === "ipable://taxonomy/motor-control-clusters") {
+    const taxonomy = await api.listTechnologies();
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: "application/json",
+          text: JSON.stringify(taxonomy, null, 2),
+        },
+      ],
+    };
+  }
+
+  throw new Error(`Unknown resource: ${uri}`);
+});
+
+// ── Prompts ────────────────────────────────────────────────────────────────
+
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+  return {
+    prompts: [
+      {
+        name: "discover-technology",
+        description:
+          "Discover which patent technology clusters match your work. Describe your technology and the AI will recommend relevant clusters to subscribe to.",
+        arguments: [
+          {
+            name: "description",
+            description: "Describe your technology, product, or research area in plain language",
+            required: true,
+          },
+        ],
+      },
+      {
+        name: "explore-technology",
+        description:
+          "Deep-dive into a technology cluster — see top patent holders, filing trends, recent patents, and cross-technology citation flow.",
+        arguments: [
+          {
+            name: "technology",
+            description: "Technology name or keyword, e.g. 'Electric Power Steering', 'vector control'",
+            required: true,
+          },
+        ],
+      },
+    ],
+  };
+});
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const { name, arguments: promptArgs } = request.params;
+
+  if (name === "discover-technology") {
+    const description = promptArgs?.description || "my technology";
+    const taxonomy = await api.listTechnologies();
+
+    return {
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: `Here is the full taxonomy of 26 motor-control technology clusters discovered via Leiden community detection over 55,994 H02P patents (US+WO):\n\n${JSON.stringify(taxonomy, null, 2)}`,
+          },
+        },
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: `I work on: ${description}\n\nPlease analyze which of the 26 technology clusters above are most relevant to my work. For each match:\n1. Explain WHY it's relevant to what I described\n2. How many patents it contains\n3. Whether I should subscribe to track it\n\nAfter your analysis, offer to subscribe me to the clusters I'm interested in using the ipable_subscribe tool. Also offer to explore any cluster in more detail (top companies, trends, recent patents).`,
+          },
+        },
+      ],
+    };
+  }
+
+  if (name === "explore-technology") {
+    const technology = promptArgs?.technology || "motor control";
+
+    return {
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: `I want to explore the "${technology}" technology cluster. Please:\n1. Show me the top patent holders (use ipable_assignee_landscape)\n2. Show the filing trend over time (use ipable_technology_timeline)\n3. Show the 10 most recent patents (use ipable_cluster_patents with limit 10)\n4. Show which other technologies cite or are cited by this one (use ipable_technology_flow)\n\nSummarize the competitive landscape, growth trajectory, and key trends. Then ask if I'd like to subscribe to this technology.`,
+          },
+        },
+      ],
+    };
+  }
+
+  throw new Error(`Unknown prompt: ${name}`);
 });
 
 // ── Start Server ────────────────────────────────────────────────────────────

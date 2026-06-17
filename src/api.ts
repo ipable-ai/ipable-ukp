@@ -114,4 +114,62 @@ export class IPableAPI {
   async searchClaimElements(claimText: string, minScore: number = 0.7): Promise<any> {
     return this.request("/api/v1/claims/search-elements", "POST", { claim_text: claimText, min_score: minScore });
   }
+
+  // Technology Communities (Clusters)
+  async classifyPatent(pubNum: string): Promise<any> {
+    return this.request(`/api/v1/clusters/classify/${encodeURIComponent(pubNum)}`);
+  }
+
+  async findTechnology(query: string): Promise<any> {
+    return this.request(`/api/v1/clusters/find?query=${encodeURIComponent(query)}`);
+  }
+
+  async listTechnologies(): Promise<any> {
+    return this.request("/api/v1/clusters/list");
+  }
+
+  async clusterPatents(technology: string, limit: number = 20): Promise<any> {
+    return this.request(`/api/v1/clusters/patents?technology=${encodeURIComponent(technology)}&limit=${limit}`);
+  }
+
+  async clusterPriorArt(pubNum: string, limit: number = 10): Promise<any> {
+    return this.request(`/api/v1/clusters/prior-art/${encodeURIComponent(pubNum)}?limit=${limit}`);
+  }
+
+  async assigneeLandscape(technology: string, limit: number = 20): Promise<any> {
+    return this.request(`/api/v1/clusters/assignees?technology=${encodeURIComponent(technology)}&limit=${limit}`);
+  }
+
+  async technologyFlow(technology: string, limit: number = 20): Promise<any> {
+    return this.request(`/api/v1/clusters/flow?technology=${encodeURIComponent(technology)}&limit=${limit}`);
+  }
+
+  async technologyTimeline(technology: string): Promise<any> {
+    return this.request(`/api/v1/clusters/timeline?technology=${encodeURIComponent(technology)}`);
+  }
+
+  async ipcVsCluster(pubNum: string): Promise<any> {
+    return this.request(`/api/v1/clusters/ipc-comparison/${encodeURIComponent(pubNum)}`);
+  }
+
+  async similarLimitations(elementId: string, limit: number = 10): Promise<any> {
+    return this.request(`/api/v1/clusters/similar-limitations/${encodeURIComponent(elementId)}?limit=${limit}`);
+  }
+
+  // Subscriptions
+  async subscribe(clusterId: number, clusterName: string): Promise<any> {
+    return this.request("/api/v1/subscriptions/", "POST", { cluster_id: clusterId, cluster_name: clusterName });
+  }
+
+  async unsubscribe(clusterId: string): Promise<any> {
+    return this.request(`/api/v1/subscriptions/${encodeURIComponent(clusterId)}`, "DELETE");
+  }
+
+  async listSubscriptions(): Promise<any> {
+    return this.request("/api/v1/subscriptions/");
+  }
+
+  async checkSubscription(clusterId: string): Promise<any> {
+    return this.request(`/api/v1/subscriptions/${encodeURIComponent(clusterId)}`);
+  }
 }
