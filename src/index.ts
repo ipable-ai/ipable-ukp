@@ -12,20 +12,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { IPableAPI } from "./api.js";
 
-const API_KEY = process.env.IPABLE_API_KEY || "";
 const BASE_URL = process.env.IPABLE_BASE_URL;
-
-if (!API_KEY) {
-  console.error("[ipable-mcp] ❌ IPABLE_API_KEY environment variable is required");
-  process.exit(1);
-}
-
-const api = new IPableAPI(API_KEY, BASE_URL);
-
-const server = new Server(
-  { name: "ipable-mcp", version: "0.1.0" },
-  { capabilities: { tools: {}, resources: {}, prompts: {} } }
-);
 
 // ── Tool Definitions ────────────────────────────────────────────────────────
 
@@ -210,6 +197,21 @@ const TOOLS = [
     },
   },
   {
+    name: "ipable_classify_patent_from_features",
+    description: "Inductively classify an UNSEEN / not-yet-indexed patent (e.g. a draft application, a brand-new filing, or any patent outside the 55,994 indexed set) into a motor-control technology community from its CONTENT. Embeds the supplied text with the same E5 model the clusters were built from, finds the nearest INDEXED candidate patents (restricted to the 55,994 reps the clusters live on), and assigns by the v4 graph weights (3.0*backward-citation + 0.6*abstract-similarity). Returns `top_clusters`: the 5 most likely technology communities each with a confidence share, plus supporting evidence patents — or abstains (cluster=null, reason 'out_of_distribution'/'weak_support') when nothing fits. On a temporal holdout the correct cluster is rank-1 ~59% and within top-5 ~94% of the time. title+abstract required; citations optional and strengthen the result; claims/ipc accepted but not scored. Use this (NOT ipable_classify_patent) when the patent is not already in the graph or when the user provides the patent's text rather than a publication number.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        title: { type: "string", description: "Patent title" },
+        abstract: { type: "string", description: "Patent abstract (required for a reliable result)" },
+        claims: { type: "array", items: { type: "string" }, description: "Optional: independent claim or limitation texts — sharpens the result" },
+        ipc: { type: "array", items: { type: "string" }, description: "Optional: IPC codes, e.g. ['H02P21/00'] — used to bias toward technically aligned clusters" },
+        citations: { type: "array", items: { type: "string" }, description: "Optional: backward-cited publication numbers — adds a citation-neighborhood signal" },
+      },
+      required: ["title", "abstract"],
+    },
+  },
+  {
     name: "ipable_find_technology",
     description: "Search for technology communities by keyword. Returns matching named technology groups from the 26 motor-control clusters. Use when user asks 'is there a cluster for X?', 'find technologies related to X'.",
     inputSchema: {
@@ -341,6 +343,14 @@ const TOOLS = [
       properties: {},
     },
   },
+  {
+    name: "ipable_check_alerts",
+    description: "Check for new patents in all subscribed technology clusters since the last check. Returns new patents grouped by cluster with filing dates, titles, and assignees. Use when the user asks 'any new patents?', 'check my alerts', 'what's new in my clusters?', 'show me updates'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
   // Chat is LAST RESORT — only when no specific tool matches
   {
     name: "ipable_chat",
@@ -357,7 +367,16 @@ const TOOLS = [
 
 // ── List Tools ──────────────────────────────────────────────────────────────
 
-server.setRequestHandler(ListToolsRequestSchema, async () => {
+// ── Server factory — shared by the stdio (local) and HTTP (remote) entries ───
+// `api` is supplied per caller so the remote server can be multi-tenant (each
+// request authenticates with its own API key).
+export function createServer(api: IPableAPI): Server {
+  const server = new Server(
+    { name: "ipable-mcp", version: "0.5.0" },
+    { capabilities: { tools: {}, resources: {}, prompts: {} } }
+  );
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools: TOOLS };
 });
 
@@ -449,6 +468,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result = await api.classifyPatent(args.publication_number as string);
         break;
 
+      case "ipable_classify_patent_from_features":
+        result = await api.classifyPatentFromFeatures({
+          title: args.title as string,
+          abstract: args.abstract as string,
+          claims: args.claims as string[] | undefined,
+          ipc: args.ipc as string[] | undefined,
+          citations: args.citations as string[] | undefined,
+        });
+        break;
+
       case "ipable_find_technology":
         result = await api.findTechnology(args.query as string);
         break;
@@ -509,6 +538,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "ipable_my_subscriptions":
         result = await api.listSubscriptions();
+        break;
+
+      case "ipable_check_alerts":
+        result = await api.checkAlerts();
         break;
 
       default:
@@ -641,22 +674,34 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     };
   }
 
-  throw new Error(`Unknown prompt: ${name}`);
-});
+    throw new Error(`Unknown prompt: ${name}`);
+  });
 
-// ── Start Server ────────────────────────────────────────────────────────────
+  return server;
+}
 
+// ── stdio entry (local npm package) ──────────────────────────────────────────
 async function main() {
-  console.error("[ipable-mcp] ℹ️  Starting IPable MCP Server v0.1.0");
+  const API_KEY = process.env.IPABLE_API_KEY || "";
+  if (!API_KEY) {
+    console.error("[ipable-mcp] ❌ IPABLE_API_KEY environment variable is required");
+    process.exit(1);
+  }
+  console.error("[ipable-mcp] ℹ️  Starting IPable MCP Server v0.5.0 (stdio)");
   console.error(`[ipable-mcp] ℹ️  API: ${BASE_URL || "default (Cloud Run)"}`);
 
+  const api = new IPableAPI(API_KEY, BASE_URL);
+  const server = createServer(api);
   const transport = new StdioServerTransport();
   await server.connect(transport);
-
   console.error("[ipable-mcp] ✅ Server ready");
 }
 
-main().catch((error) => {
-  console.error("[ipable-mcp] ❌ Fatal error:", error);
-  process.exit(1);
-});
+// Only run the stdio server when this file is executed directly (npx / node),
+// NOT when imported by the HTTP entry (http.ts). CommonJS main-detection.
+if (require.main === module) {
+  main().catch((error) => {
+    console.error("[ipable-mcp] ❌ Fatal error:", error);
+    process.exit(1);
+  });
+}

@@ -120,6 +120,16 @@ export class IPableAPI {
     return this.request(`/api/v1/clusters/classify/${encodeURIComponent(pubNum)}`);
   }
 
+  async classifyPatentFromFeatures(args: {
+    title: string;
+    abstract: string;
+    claims?: string[];
+    ipc?: string[];
+    citations?: string[];
+  }): Promise<any> {
+    return this.request("/api/v1/clusters/classify-features", "POST", args);
+  }
+
   async findTechnology(query: string): Promise<any> {
     return this.request(`/api/v1/clusters/find?query=${encodeURIComponent(query)}`);
   }
@@ -171,5 +181,9 @@ export class IPableAPI {
 
   async checkSubscription(clusterId: string): Promise<any> {
     return this.request(`/api/v1/subscriptions/${encodeURIComponent(clusterId)}`);
+  }
+
+  async checkAlerts(): Promise<any> {
+    return this.request("/api/v1/subscriptions/alerts");
   }
 }

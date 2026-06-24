@@ -1,6 +1,6 @@
 {
   "name": "@ipable/mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "MCP server for IPable Patent Intelligence — query a 12M+ node patent knowledge graph from any AI tool",
   "main": "dist/index.js",
   "bin": {
@@ -12,7 +12,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts"
+    "start:http": "node dist/http.js",
+    "dev": "ts-node src/index.ts",
+    "dev:http": "ts-node src/http.ts"
   },
   "keywords": [
     "mcp",
@@ -27,11 +29,14 @@
   "author": "IPable",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@google-cloud/firestore": "^7.10.0",
+    "express": "^4.21.0"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
     "@types/node": "^20.0.0",
+    "@types/express": "^4.17.21",
     "ts-node": "^10.9.0"
   }
 }
